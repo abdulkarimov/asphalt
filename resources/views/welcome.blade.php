@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Асфальтирование дорог и территорий</title>
 
     <!-- Favicon -->
@@ -457,35 +457,37 @@
                 <!-- Contact Form -->
                 <div>
                     <h3 class="text-2xl font-bold mb-6">Оставить заявку</h3>
-                    <form class="space-y-4">
+                    <form id="contactForm" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Имя</label>
-                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ваше имя">
+                            <input type="text" id="name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ваше имя">
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
-                            <input type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="+7 (___) ___-__-__">
+                            <input type="tel" id="phone" name="phone" required pattern="^\+7\s?\(?[0-9]{3}\)?\s?[0-9]{3}-?[0-9]{2}-?[0-9]{2}$" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="+7 (___) ___-__-__">
+                            <div id="phone-error" class="text-red-500 text-sm mt-1 hidden">Введите корректный номер телефона в формате +7 (___) ___-__-__</div>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Тип работ</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                <option>Асфальтирование дорог</option>
-                                <option>Асфальтирование дворов</option>
-                                <option>Ямочный ремонт</option>
-                                <option>Благоустройство территорий</option>
+                            <select id="workType" name="workType" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <option value="">Выберите тип работ</option>
+                                <option value="Асфальтирование дорог">Асфальтирование дорог</option>
+                                <option value="Асфальтирование дворов">Асфальтирование дворов</option>
+                                <option value="Ямочный ремонт">Ямочный ремонт</option>
+                                <option value="Благоустройство территорий">Благоустройство территорий</option>
                             </select>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Площадь (м²)</label>
-                            <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Укажите площадь">
+                            <input type="number" id="area" name="area" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Укажите площадь">
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Комментарий</label>
-                            <textarea rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Дополнительная информация о проекте"></textarea>
+                            <textarea rows="4" id="comment" name="comment" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Дополнительная информация о проекте"></textarea>
                         </div>
 
                         <button type="submit" class="btn-primary w-full py-3 rounded-lg text-white font-semibold">
@@ -577,6 +579,119 @@
             const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
             window.open(whatsappUrl, '_blank');
         }
+
+        // Send form data to backend
+        async function sendToTelegram(formData) {
+            try {
+                const response = await fetch('/send-telegram', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message);
+                    document.getElementById('contactForm').reset();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка отправки заявки:', error);
+                alert('Произошла ошибка при отправке заявки. Попробуйте позже или свяжитесь с нами по телефону.');
+            }
+        }
+
+        // Phone validation and formatting
+        function validatePhone(phone) {
+            const phoneRegex = /^\+7\s?\(?[0-9]{3}\)?\s?[0-9]{3}-?[0-9]{2}-?[0-9]{2}$/;
+            return phoneRegex.test(phone);
+        }
+
+        function formatPhone(input) {
+            let value = input.value.replace(/\D/g, '');
+            
+            if (value.length === 0) {
+                input.value = '';
+                return;
+            }
+            
+            // Если начинается с 8, заменяем на 7
+            if (value.startsWith('8')) {
+                value = '7' + value.slice(1);
+            }
+            
+            // Если не начинается с 7, добавляем 7
+            if (!value.startsWith('7')) {
+                value = '7' + value;
+            }
+            
+            // Ограничиваем до 11 цифр
+            value = value.slice(0, 11);
+            
+            // Форматируем по мере ввода
+            let formatted = '+7';
+            if (value.length > 1) {
+                formatted = '+7 (' + value.slice(1, 4);
+            }
+            if (value.length > 4) {
+                formatted = '+7 (' + value.slice(1, 4) + ') ' + value.slice(4, 7);
+            }
+            if (value.length > 7) {
+                formatted = '+7 (' + value.slice(1, 4) + ') ' + value.slice(4, 7) + '-' + value.slice(7, 9);
+            }
+            if (value.length > 9) {
+                formatted = '+7 (' + value.slice(1, 4) + ') ' + value.slice(4, 7) + '-' + value.slice(7, 9) + '-' + value.slice(9, 11);
+            }
+            
+            input.value = formatted;
+        }
+
+        // Phone input event listeners
+        document.getElementById('phone').addEventListener('input', function(e) {
+            formatPhone(e.target);
+            const phoneError = document.getElementById('phone-error');
+            if (e.target.value && !validatePhone(e.target.value)) {
+                phoneError.classList.remove('hidden');
+                e.target.classList.add('border-red-500');
+            } else {
+                phoneError.classList.add('hidden');
+                e.target.classList.remove('border-red-500');
+            }
+        });
+
+        // Form submission handler
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                workType: document.getElementById('workType').value,
+                area: document.getElementById('area').value,
+                comment: document.getElementById('comment').value
+            };
+
+            // Validate required fields
+            if (!formData.name || !formData.phone || !formData.workType) {
+                alert('Пожалуйста, заполните все обязательные поля');
+                return;
+            }
+
+            // Validate phone format
+            if (!validatePhone(formData.phone)) {
+                alert('Пожалуйста, введите корректный номер телефона');
+                document.getElementById('phone').focus();
+                return;
+            }
+
+            // Send to Telegram
+            sendToTelegram(formData);
+        });
 
         // Smooth scrolling for navigation links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
